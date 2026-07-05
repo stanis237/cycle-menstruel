@@ -1,0 +1,159 @@
+CAHIER DES CHARGES
+Application mobile de suivi du cycle menstruel,
+de fertilité et de santé féminine
+Nom provisoire : « CYCLIA »
+Stack technique : Flutter · Firebase · Intelligence Artificielle
+Version 1.0 — Juillet 2026
+1. Introduction
+1.1 Contexte
+Les applications de suivi du cycle menstruel comme Flo comptent aujourd'hui des centaines de millions d'utilisatrices dans le monde. Elles répondent à un besoin réel : mieux comprendre son corps, anticiper ses règles, optimiser ses chances de conception ou, au contraire, les éviter, et suivre sa grossesse au quotidien.
+Ce projet vise à concevoir une application équivalente, pensée dès le départ pour une exécution rapide en Flutter avec un backend Firebase, tout en intégrant des innovations différenciantes absentes ou peu développées chez les leaders du marché.
+1.2 Objectifs du projet
+Objectif principal : Développer une application mobile complète (iOS/Android) de suivi du cycle menstruel, de la fertilité et de la grossesse
+Objectif secondaire 1 : Offrir des prédictions fiables grâce à un algorithme statistique qui s'améliore avec l'historique de l'utilisatrice
+Objectif secondaire 2 : Différencier le produit par des fonctionnalités innovantes (IA conversationnelle, mode partenaire, contenu localisé)
+Objectif secondaire 3 : Garantir un niveau de confidentialité et de sécurité élevé, les données de santé étant hautement sensibles
+1.3 Public cible
+Femmes de 15 à 45 ans souhaitant suivre leur cycle menstruel
+Couples en désir de grossesse (méthode de conception naturelle)
+Femmes enceintes souhaitant un suivi semaine par semaine
+Femmes souhaitant une contraception naturelle (méthode symptothermique)
+Marché initial : Afrique francophone (Cameroun en priorité), extensible à la francophonie puis à l'international
+1.4 Analyse concurrentielle rapide
+Application
+Points forts
+Limites observées
+Flo
+Prédictions précises, contenu riche, IA « Anna »
+Application fermée, peu de personnalisation locale, abonnement cher
+Clue
+Interface neutre, approche scientifique
+Moins de fonctionnalités grossesse
+Period Tracker
+Gratuit, simple
+Peu d'innovation, publicités intrusives
+2. Fonctionnalités
+2.1 Phase 1 — Fonctionnalités de base (MVP)
+Création de compte (email, Google, Apple) via Firebase Auth
+Onboarding : dernières règles, durée moyenne du cycle, objectif (suivi règles / grossesse / contraception)
+Calendrier du cycle avec saisie manuelle des règles
+Prédiction des prochaines règles et de la fenêtre fertile
+Journal quotidien de symptômes (douleurs, flux, humeur, énergie)
+Notifications de rappel (règles à venir, fenêtre fertile)
+Profil utilisatrice et paramètres de confidentialité
+2.2 Phase 2 — Fonctionnalités avancées
+Suivi de la température basale et courbes de fertilité
+Suivi de la glaire cervicale et des tests d'ovulation (LH)
+Mode grossesse : suivi semaine par semaine, taille du bébé, check-list examens
+Suivi du poids, du sommeil et de l'activité physique
+Statistiques et graphiques d'évolution du cycle sur plusieurs mois
+Export PDF du suivi pour consultation médicale
+Contenu éducatif : articles santé, FAQ, vidéos courtes
+2.3 Phase 3 — Innovations différenciantes
+Ces fonctionnalités visent à démarquer l'application de Flo et des concurrents historiques.
+Assistant IA conversationnel santé : chatbot capable de répondre en langage naturel à des questions sur les symptômes, en s'appuyant sur l'historique de l'utilisatrice (API Claude/OpenAI en back-end, jamais de diagnostic médical, uniquement de l'orientation)
+Mode partenaire : partage sécurisé et anonymisé d'un résumé du cycle avec le conjoint (jours fertiles, humeur générale) pour renforcer la communication du couple
+Détection de tendances anormales : alerte douce si le cycle devient très irrégulier ou si des symptômes récurrents suggèrent d'en parler à un professionnel de santé (sans jamais poser de diagnostic)
+Contenu localisé : articles et conseils adaptés au contexte culturel et sanitaire de l'Afrique francophone (accès aux soins, remèdes traditionnels vs recommandations médicales, disponibilité des produits d'hygiène)
+Mode discret : icône et nom d'application personnalisables sur l'écran d'accueil pour préserver la confidentialité
+Suivi santé mentale lié au cycle : corrélation entre humeur/anxiété et phase du cycle, utile pour repérer un syndrome prémenstruel sévère (SPM/TDPM)
+Fonctionnement hors-ligne complet : toutes les saisies restent utilisables sans connexion, synchronisation automatique dès que le réseau revient (point important pour un marché à connectivité variable)
+Intégration objets connectés : montres connectées (santé, sommeil, température) pour enrichir automatiquement les données
+Communauté anonyme par thématique : espaces d'échange modérés (grossesse, contraception naturelle, adolescentes) sans exposition de l'identité réelle
+3. Architecture technique
+3.1 Stack technologique
+Composant
+Technologie
+Application mobile
+Flutter (iOS + Android, un seul code source)
+Authentification
+Firebase Authentication
+Base de données
+Cloud Firestore (NoSQL, temps réel)
+Logique serveur
+Cloud Functions (Node.js)
+Notifications
+Firebase Cloud Messaging
+Stockage fichiers
+Firebase Storage
+IA conversationnelle
+API Claude (Anthropic) via Cloud Function
+Analytics
+Firebase Analytics + Crashlytics
+3.2 Modèle de données Firestore (structure indicative)
+Collection
+Champs clés
+Description
+users
+uid, email, dateNaissance, objectif, parametresConfidentialite
+Profil de base
+cycles
+userId, dateDebut, dateFin, dureeMoyenne
+Historique des cycles
+symptoms
+userId, date, type, intensite, humeur, notes
+Journal quotidien
+fertility
+userId, date, temperature, glaireCervicale, testLH
+Données de fertilité
+pregnancy
+userId, dateConception, semaineActuelle, rdvMedicaux
+Suivi grossesse
+insights
+userId, date, contenu, typeAlerte
+Recommandations générées par l'IA
+partnerLinks
+userId, partnerId, permissions
+Mode partenaire
+3.3 Architecture générale
+L'application suit une architecture client-serveur classique : l'app Flutter communique directement avec Firestore pour les opérations simples (lecture/écriture du journal, du calendrier) et passe par des Cloud Functions pour toute logique métier sensible : calcul des prédictions, génération des insights IA, envoi de notifications programmées, et gestion du mode partenaire.
+Le stockage local (Hive ou SQLite embarqué) permet un fonctionnement hors-ligne complet, avec synchronisation différée vers Firestore dès que la connexion est rétablie.
+4. Sécurité et confidentialité
+Les données de santé, en particulier celles liées au cycle menstruel et à la grossesse, sont parmi les plus sensibles qui existent. Une attention particulière doit être portée à leur protection.
+Chiffrement des données sensibles au repos et en transit (Firestore + HTTPS natif)
+Règles de sécurité Firestore strictes : chaque utilisatrice n'accède qu'à ses propres données
+Anonymisation des données utilisées pour la communauté et les statistiques agrégées
+Consentement explicite et granulaire (opt-in) pour chaque partage : partenaire, communauté, analytics
+Politique de confidentialité claire, conforme au RGPD (utile aussi pour une extension européenne future)
+Fonction de suppression complète du compte et de toutes les données associées
+Aucune vente ou partage des données de santé à des tiers (annonceurs, assureurs)
+5. Expérience utilisateur (UX/UI)
+5.1 Parcours utilisatrice
+Écran d'accueil / onboarding (3 à 4 écrans d'introduction + choix de l'objectif)
+Tableau de bord principal : jour du cycle, phase actuelle, prochaine échéance
+Calendrier mensuel avec code couleur (règles, fenêtre fertile, ovulation estimée)
+Écran de saisie rapide des symptômes du jour
+Écran statistiques et tendances
+Écran assistant IA (chat)
+Écran paramètres et confidentialité
+5.2 Direction visuelle
+Palette de couleurs douce et rassurante (violet, rose poudré, blanc), typographie arrondie et lisible, icônes personnalisées par phase du cycle. L'interface doit rester simple d'accès même pour des utilisatrices peu à l'aise avec la technologie, un point important pour le marché ciblé en priorité.
+6. Plan de développement par phases
+Phase
+Contenu
+Durée estimée
+Phase 0
+Cahier des charges, wireframes, configuration Firebase
+1 à 2 semaines
+Phase 1 — MVP
+Auth, calendrier, prédictions de base, journal symptômes, notifications
+4 à 6 semaines
+Phase 2 — Avancé
+Fertilité, grossesse, statistiques, export PDF, contenu éducatif
+4 à 5 semaines
+Phase 3 — Innovation
+Assistant IA, mode partenaire, mode discret, communauté
+5 à 7 semaines
+Phase 4 — Finalisation
+Tests, corrections, optimisation, publication stores
+2 à 3 semaines
+7. Pistes de monétisation
+Modèle freemium : fonctionnalités de base gratuites, fonctionnalités avancées en abonnement
+Abonnement mensuel ou annuel pour l'assistant IA, le mode partenaire et les exports illimités
+Aucune publicité intrusive sur les données de santé (pour préserver la confiance)
+8. Prochaines étapes
+Validation du périmètre fonctionnel de la Phase 1 (MVP)
+Création des wireframes détaillés (Figma ou équivalent)
+Initialisation du projet Flutter et configuration du projet Firebase
+Définition précise des règles de sécurité Firestore
+Choix définitif du nom de l'application et de l'identité visuelle
