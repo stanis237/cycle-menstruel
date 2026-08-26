@@ -50,8 +50,15 @@ class _LoginScreenState extends State<LoginScreen> {
     if (success) {
       if (!mounted) return;
       
-      // If we registered, or if we logged in but haven't completed onboarding,
-      // we check if a cycle exists. If no cycles exist, we send them to Onboarding.
+      // If it's a new registration, go straight to Onboarding
+      if (!_isLogin) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+        );
+        return;
+      }
+
+      // If it's a login, check if they have cycles (completed onboarding)
       final cycles = await _apiService.getCycles();
       
       if (!mounted) return;

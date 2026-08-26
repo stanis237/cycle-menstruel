@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -21,8 +22,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   
   int _cycleLength = 28;
   int _periodLength = 5;
+  bool _isIrregular = false;
   String _objective = 'track';
   bool _privacyEnabled = true;
+
+  TimeOfDay _pillTime = const TimeOfDay(hour: 20, minute: 0);
+  bool _pillReminderEnabled = false;
+  bool _cycleRemindersEnabled = true;
 
   @override
   void initState() {
@@ -44,6 +50,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _email = profile['email'] ?? "";
         _cycleLength = pDetails['average_cycle_length'] ?? 28;
         _periodLength = pDetails['average_period_length'] ?? 5;
+        _isIrregular = pDetails['is_irregular_declared'] ?? false;
         _objective = pDetails['objective'] ?? 'track';
         _privacyEnabled = pDetails['privacy_enabled'] ?? true;
       });
@@ -59,10 +66,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _isSaving = true;
     });
 
+    if (_pillReminderEnabled) {
+      await NotificationService().schedulePillReminder(1, _pillTime.hour, _pillTime.minute);
+    } else {
+      await NotificationService().cancelAll();
+    }
+
     final success = await _apiService.updateProfile({
       'profile': {
         'average_cycle_length': _cycleLength,
         'average_period_length': _periodLength,
+        'is_irregular_declared': _isIrregular,
         'objective': _objective,
         'privacy_enabled': _privacyEnabled,
       }
@@ -77,6 +91,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Profil mis à jour avec succès.")),
       );
+      // Wait a short moment to let the user see the snackbar then redirect
+      Future.delayed(const Duration(seconds: 1), () {
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          (route) => false,
+        );
+      });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Erreur lors de la mise à jour.")),
@@ -198,6 +220,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             });
                           },
                         ),
+                        const Divider(),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text("Cycles irréguliers"),
+                          subtitle: const Text("Applique une marge d'incertitude aux prédictions"),
+                          value: _isIrregular,
+                          activeColor: const Color(0xFF8E24AA),
+                          onChanged: (val) {
+                            setState(() {
+                              _isIrregular = val;
+                            });
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -208,7 +243,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: "Objectif de l'application",
                     icon: Icons.track_changes_rounded,
                     child: DropdownButtonFormField<String>(
-                      initialValue: _objective,
+                      value: _objective,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -244,6 +279,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _privacyEnabled = val;
                         });
                       },
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Notifications & Reminders
+                  _buildSectionCard(
+                    title: "Rappels & Notifications",
+                    icon: Icons.notifications_active_rounded,
+                    child: Column(
+                      children: [
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text("Rappel de pilule"),
+                          subtitle: const Text("Recevoir une notification quotidienne"),
+                          value: _pillReminderEnabled,
+                          activeColor: const Color(0xFF8E24AA),
+                          onChanged: (val) {
+                            setState(() {
+                              _pillReminderEnabled = val;
+                            });
+                          },
+                        ),
+                        if (_pillReminderEnabled)
+                          ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text("Heure du rappel"),
+                            subtitle: Text(_pillTime.format(context)),
+                            trailing: const Icon(Icons.access_time_rounded, color: Color(0xFF8E24AA)),
+                            onTap: () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: _pillTime,
+                              );
+                              if (picked != null) {
+                                setState(() => _pillTime = picked);
+                              }
+                            },
+                          ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text("Rappels de cycle"),
+                          subtitle: const Text("Prévisions de règles et d'ovulation"),
+                          value: _cycleRemindersEnabled,
+                          activeColor: const Color(0xFF8E24AA),
+                          onChanged: (val) {
+                            setState(() {
+                              _cycleRemindersEnabled = val;
+                            });
+                          },
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 32),

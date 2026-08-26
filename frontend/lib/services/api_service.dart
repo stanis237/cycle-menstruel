@@ -62,7 +62,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('${ApiConfig.baseUrl}/cycles/'),
         headers: headers,
-      );
+      ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -113,6 +113,25 @@ class ApiService {
       return null;
     } catch (e) {
       debugPrint('Get daily entry error: $e');
+      return null;
+    }
+  }
+
+  // Fetch all daily entries
+  Future<List<dynamic>?> getDailyEntries() async {
+    try {
+      final headers = await _getHeaders();
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/daily-entries/'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(utf8.decode(response.bodyBytes));
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Get all daily entries error: $e');
       return null;
     }
   }

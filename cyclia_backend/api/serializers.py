@@ -5,7 +5,7 @@ from .models import UserProfile, Cycle, DailyEntry
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['birth_date', 'average_cycle_length', 'average_period_length', 'objective', 'privacy_enabled']
+        fields = ['birth_date', 'average_cycle_length', 'average_period_length', 'is_irregular_declared', 'objective', 'privacy_enabled']
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -41,8 +41,8 @@ class UserSerializer(serializers.ModelSerializer):
         instance.email = validated_data.get('email', instance.email)
         instance.save()
         
-        # Update profile fields
-        profile = instance.profile
+        # Update or create profile fields (Safer)
+        profile, created = UserProfile.objects.get_or_create(user=instance)
         for attr, value in profile_data.items():
             setattr(profile, attr, value)
         profile.save()
@@ -72,7 +72,10 @@ class DailyEntrySerializer(serializers.ModelSerializer):
         fields = [
             'id', 'date', 'flow_intensity', 'pain_intensity', 
             'mood', 'energy_level', 'notes', 'temperature', 
-            'cervical_mucus', 'lh_test'
+            'cervical_mucus', 'lh_test', 'physical_symptoms', 'had_sex',
+            'sex_details', 'weight', 'sleep_hours', 'stress_level',
+            'water_intake', 'alcohol_consumption', 'exercise_intensity',
+            'skin_condition', 'hair_condition', 'pill_taken'
         ]
         read_only_fields = ['id']
 

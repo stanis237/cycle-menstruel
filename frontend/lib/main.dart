@@ -6,12 +6,20 @@ import 'screens/dashboard_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'services/auth_service.dart';
 import 'services/api_service.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize local date formatting for French calendar
-  await initializeDateFormatting('fr_FR', null);
+  try {
+    // Initialize local date formatting for French calendar
+    await initializeDateFormatting('fr_FR', null);
+    
+    // Initialize Notifications
+    await NotificationService().init();
+  } catch (e) {
+    debugPrint("Initialization error: $e");
+  }
   
   runApp(const MyApp());
 }

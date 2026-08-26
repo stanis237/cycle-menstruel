@@ -12,6 +12,7 @@ class UserProfile(models.Model):
     birth_date = models.DateField(null=True, blank=True)
     average_cycle_length = models.IntegerField(default=28)
     average_period_length = models.IntegerField(default=5)
+    is_irregular_declared = models.BooleanField(default=False)
     objective = models.CharField(max_length=50, choices=OBJECTIVE_CHOICES, default='track')
     privacy_enabled = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -49,6 +50,24 @@ class DailyEntry(models.Model):
     temperature = models.FloatField(null=True, blank=True)       # Température basale en °C
     cervical_mucus = models.CharField(max_length=50, null=True, blank=True)  # dry, sticky, creamy, watery, egg_white
     lh_test = models.CharField(max_length=20, null=True, blank=True)       # negative, positive
+
+    # New fields inspired by Flo
+    physical_symptoms = models.TextField(null=True, blank=True) # Comma separated values
+    had_sex = models.BooleanField(default=False)
+    sex_details = models.CharField(max_length=50, null=True, blank=True) # protected, unprotected
+
+    # Lifestyle & Body
+    weight = models.FloatField(null=True, blank=True)
+    sleep_hours = models.FloatField(null=True, blank=True)
+    stress_level = models.IntegerField(null=True, blank=True) # 1-5
+    water_intake = models.IntegerField(default=0) # Number of glasses
+    alcohol_consumption = models.BooleanField(default=False)
+    pill_taken = models.BooleanField(default=False)
+    exercise_intensity = models.CharField(max_length=50, null=True, blank=True) # none, light, moderate, intense
+
+    # Skin & Hair
+    skin_condition = models.CharField(max_length=50, null=True, blank=True) # clear, oily, dry, spots
+    hair_condition = models.CharField(max_length=50, null=True, blank=True) # normal, oily, dry, hair_loss
 
     class Meta:
         unique_together = ('user', 'date')

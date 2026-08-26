@@ -18,6 +18,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   DateTime? _lastPeriodDate;
   int _cycleLength = 28;
   int _periodLength = 5;
+  bool _isIrregular = false;
   String _objective = 'track';
   bool _isLoading = false;
 
@@ -72,6 +73,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         'birth_date': formattedBirthDate,
         'average_cycle_length': _cycleLength,
         'average_period_length': _periodLength,
+        'is_irregular_declared': _isIrregular,
         'objective': _objective,
       }
     });
@@ -248,6 +250,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           onChanged: (val) {
                             setState(() {
                               _periodLength = val.toInt();
+                            });
+                          },
+                        ),
+                        const Divider(height: 32),
+                        SwitchListTile(
+                          title: const Text("Mes cycles sont irréguliers"),
+                          subtitle: const Text("Cochez si la durée de vos cycles varie souvent de plus de 7 jours."),
+                          value: _isIrregular,
+                          activeColor: const Color(0xFF8E24AA),
+                          contentPadding: EdgeInsets.zero,
+                          onChanged: (val) {
+                            setState(() {
+                              _isIrregular = val;
                             });
                           },
                         ),

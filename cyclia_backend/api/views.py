@@ -1,3 +1,4 @@
+import math
 from django.shortcuts import render
 from rest_framework import status, viewsets, permissions, views
 from rest_framework.response import Response
@@ -60,10 +61,13 @@ class CycleViewSet(viewsets.ModelViewSet):
         
         try:
             start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-        except ValueError:
+        except (ValueError, TypeError):
             return Response({"error": "Format de date invalide. Utilisez YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Check if cycle on this exact day already exists
+        # Deactivate all active cycles for this user first
+        Cycle.objects.filter(user=user, is_active=True).update(is_active=False)
+
+        # Check if cycle on this exact day already exists or create it
         cycle, created = Cycle.objects.get_or_create(
             user=user, start_date=start_date,
             defaults={'is_active': True}
@@ -73,9 +77,6 @@ class CycleViewSet(viewsets.ModelViewSet):
             cycle.is_active = True
             cycle.save()
             
-        # Deactivate all OTHER cycles
-        Cycle.objects.filter(user=user, is_active=True).exclude(id=cycle.id).update(is_active=False)
-        
         serializer = self.get_serializer(cycle)
         return Response(serializer.data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
 
@@ -126,7 +127,8 @@ class PredictionsView(views.APIView):
         
         avg_cycle = profile.average_cycle_length if profile else 28
         avg_period = profile.average_period_length if profile else 5
-        
+        is_irregular = profile.is_irregular_declared if profile else False
+
         # Get all cycles sorted by start_date ascending to analyze history
         cycles = list(Cycle.objects.filter(user=user).order_by('start_date'))
         
@@ -136,17 +138,33 @@ class PredictionsView(views.APIView):
                 "predictions": []
             }, status=status.HTTP_200_OK)
             
-        # Dynamically compute average cycle length if we have at least 2 cycles
+        # Dynamically compute average cycle length and regularity
+        cycle_lengths = []
+        std_dev = 7 if is_irregular else 0 # Default high std_dev if declared irregular
+
         if len(cycles) >= 2:
-            intervals = []
             for i in range(1, len(cycles)):
                 diff = (cycles[i].start_date - cycles[i-1].start_date).days
-                # Filter out outlier cycle intervals (e.g. < 15 days or > 90 days)
                 if 15 <= diff <= 90:
-                    intervals.append(diff)
-            if intervals:
-                avg_cycle = int(sum(intervals) / len(intervals))
+                    cycle_lengths.append(diff)
+
+            if cycle_lengths:
+                avg_cycle = sum(cycle_lengths) / len(cycle_lengths)
+
+                # Calculate Standard Deviation
+                variance = sum((x - avg_cycle) ** 2 for x in cycle_lengths) / len(cycle_lengths)
+                std_dev = math.sqrt(variance)
+
+                # A cycle is often considered irregular if variation is > 4 days
+                # Or if the user declared it irregular
+                if std_dev > 4 or is_irregular:
+                    is_irregular = True
                 
+                avg_cycle = int(avg_cycle)
+        elif is_irregular:
+            # If only 1 cycle but user declared irregular, we assume a standard deviation of 7 days
+            std_dev = 7
+
         # Latest cycle
         latest_cycle = cycles[-1]
         latest_start = latest_cycle.start_date
@@ -154,17 +172,21 @@ class PredictionsView(views.APIView):
         # Calculate current cycle progress
         today = datetime.now().date()
         days_since_start = (today - latest_start).days
+
+        # If the latest cycle started a long time ago (more than average length + buffer),
+        # we treat predictions from "today" as base for UX consistency
+        prediction_base_date = latest_start
+        if days_since_start > (avg_cycle + 14):
+            # We predict relative to what should be the next cycle if they missed logging
+            cycles_missed = days_since_start // avg_cycle
+            prediction_base_date = latest_start + timedelta(days=cycles_missed * avg_cycle)
+
         current_day_of_cycle = days_since_start + 1
         
-        # Determine current phase
-        # Standard: 
-        # Menstruation: days 1 to avg_period
-        # Follicular (pre-fertile): days avg_period + 1 to ovulation_day - 6
-        # Fertile Window: ovulation_day - 5 to ovulation_day + 1
-        # Luteal: ovulation_day + 2 to next_start - 1
-        ovulation_day_index = avg_cycle - 14  # Day of ovulation relative to cycle start (e.g. Day 14 for 28-day cycle)
-        fertile_start_index = ovulation_day_index - 5 # Day 9
-        fertile_end_index = ovulation_day_index + 1    # Day 15
+        # Determine current phase logic
+        ovulation_day_index = avg_cycle - 14
+        fertile_start_index = ovulation_day_index - 5
+        fertile_end_index = ovulation_day_index + 1
         
         current_phase = "Phase lutéale"
         if 1 <= current_day_of_cycle <= avg_period:
@@ -173,27 +195,49 @@ class PredictionsView(views.APIView):
             current_phase = "Phase folliculaire"
         elif fertile_start_index <= current_day_of_cycle <= fertile_end_index:
             current_phase = "Fenêtre fertile (Ovulation)"
-            
+        elif current_day_of_cycle > avg_cycle:
+            current_phase = "Retard de cycle"
+
         predictions = []
         
         # Generate predictions for the next 3 cycles
         for i in range(1, 4):
-            pred_start = latest_start + timedelta(days=i * avg_cycle)
-            pred_end = pred_start + timedelta(days=avg_period - 1)
-            pred_ovulation = pred_start - timedelta(days=14)
-            pred_fertile_start = pred_ovulation - timedelta(days=5)
-            pred_fertile_end = pred_ovulation + timedelta(days=1)
+            # Base predicted start
+            base_pred_start = prediction_base_date + timedelta(days=i * avg_cycle)
+
+            # Ensure predictions are in the future
+            while base_pred_start <= today:
+                base_pred_start += timedelta(days=avg_cycle)
+
+            # For irregular cycles, provide a range
+            # We limit the uncertainty buffer to 3 days max on each side (total 6 days range)
+            # to avoid overly wide predictions while accounting for irregularity.
+            raw_buffer = max(2, int(std_dev)) * i
+            buffer = min(raw_buffer, 3)
+
+            earliest_start = base_pred_start - timedelta(days=buffer)
+            latest_pred_start = base_pred_start + timedelta(days=buffer)
+
+            pred_end = base_pred_start + timedelta(days=avg_period - 1)
+            pred_ovulation = base_pred_start - timedelta(days=14)
+
+            # Fertility window is also wider if irregular
+            f_buffer = buffer // 2
+            pred_fertile_start = pred_ovulation - timedelta(days=5 + f_buffer)
+            pred_fertile_end = pred_ovulation + timedelta(days=1 + f_buffer)
             
             predictions.append({
                 "cycle_number": i,
-                "predicted_start": pred_start.strftime("%Y-%m-%d"),
+                "predicted_start": base_pred_start.strftime("%Y-%m-%d"),
+                "earliest_predicted_start": earliest_start.strftime("%Y-%m-%d"),
+                "latest_predicted_start": latest_pred_start.strftime("%Y-%m-%d"),
                 "predicted_end": pred_end.strftime("%Y-%m-%d"),
                 "predicted_ovulation": pred_ovulation.strftime("%Y-%m-%d"),
                 "predicted_fertile_start": pred_fertile_start.strftime("%Y-%m-%d"),
                 "predicted_fertile_end": pred_fertile_end.strftime("%Y-%m-%d"),
             })
             
-        # Also return dynamic details for the current active cycle
+        # Return details
         current_cycle_ovulation = latest_start + timedelta(days=ovulation_day_index)
         current_cycle_fertile_start = current_cycle_ovulation - timedelta(days=5)
         current_cycle_fertile_end = current_cycle_ovulation + timedelta(days=1)
@@ -205,9 +249,16 @@ class PredictionsView(views.APIView):
                 "current_phase": current_phase,
                 "average_cycle_length": avg_cycle,
                 "average_period_length": avg_period,
+                "is_irregular": is_irregular,
+                "cycle_regularity_std_dev": round(std_dev, 2),
                 "ovulation_date": current_cycle_ovulation.strftime("%Y-%m-%d"),
                 "fertile_window_start": current_cycle_fertile_start.strftime("%Y-%m-%d"),
                 "fertile_window_end": current_cycle_fertile_end.strftime("%Y-%m-%d"),
             },
-            "predictions": predictions
+            "predictions": predictions,
+            "analysis": {
+                "cycle_count": len(cycles),
+                "regularity_status": "Irrégulier" if is_irregular else "Régulier",
+                "variation_days": round(std_dev, 1)
+            }
         })

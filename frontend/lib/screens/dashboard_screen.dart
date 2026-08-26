@@ -6,6 +6,11 @@ import 'login_screen.dart';
 import 'calendar_screen.dart';
 import 'symptoms_screen.dart';
 import 'profile_screen.dart';
+import 'discover_screen.dart';
+import 'stats_screen.dart';
+import 'chat_screen.dart';
+import 'premium_screen.dart';
+import '../services/notification_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -22,6 +27,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _todayEntry;
   bool _isLoading = true;
   String _username = "";
+  int _waterGlasses = 0;
+  bool _pillTaken = false;
 
   @override
   void initState() {
@@ -45,8 +52,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _username = username;
       _data = data;
       _todayEntry = todayEntry;
+      if (todayEntry != null) {
+        _waterGlasses = todayEntry['water_intake'] ?? 0;
+        _pillTaken = todayEntry['pill_taken'] ?? false;
+      } else {
+        _waterGlasses = 0;
+        _pillTaken = false;
+      }
       _isLoading = false;
     });
+
+    _scheduleCycleNotifications();
+  }
+
+  Future<void> _updateQuickStats() async {
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    
+    // We merge with existing entry if available
+    Map<String, dynamic> entryData = Map.from(_todayEntry ?? {});
+    entryData['date'] = todayStr;
+    entryData['water_intake'] = _waterGlasses;
+    entryData['pill_taken'] = _pillTaken;
+
+    final success = await _apiService.saveDailyEntry(entryData);
+    if (success) {
+      // Reload today's entry to stay in sync
+      final updatedEntry = await _apiService.getDailyEntry(todayStr);
+      setState(() {
+        _todayEntry = updatedEntry;
+      });
+    }
+  }
+
+  void _scheduleCycleNotifications() {
+    if (_data == null || _data!['predictions'] == null) return;
+    final List predictions = _data!['predictions'];
+    if (predictions.isEmpty) return;
+
+    final firstPred = predictions[0];
+    final startStr = firstPred['predicted_start'];
+    final ovStr = firstPred['predicted_ovulation'];
+
+    if (startStr != null) {
+      NotificationService().schedulePeriodReminder(DateTime.parse(startStr));
+    }
+    if (ovStr != null) {
+      NotificationService().scheduleOvulationReminder(DateTime.parse(ovStr));
+    }
   }
 
   Color _getPhaseColor(String phase) {
@@ -113,40 +165,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     // Central Status Ring
                     _buildCycleStatusRing(),
+                    
+                    const SizedBox(height: 20),
+                    
+                    // Premium Banner
+                    _buildPremiumCTA(),
 
                     const SizedBox(height: 30),
 
                     // Bottom Navigation Grid
-                    Row(
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisSpacing: 15,
+                      mainAxisSpacing: 15,
+                      childAspectRatio: 1.4,
                       children: [
-                        Expanded(
-                          child: _buildActionCard(
-                            title: "Calendrier",
-                            subtitle: "Suivi & prédictions",
-                            icon: Icons.calendar_month_rounded,
-                            color: const Color(0xFF8E24AA),
-                            onTap: () async {
-                              await Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const CalendarScreen()),
-                              );
-                              _loadDashboardData();
-                            },
-                          ),
+                        _buildActionCard(
+                          title: "Calendrier",
+                          subtitle: "Suivi & prédictions",
+                          icon: Icons.calendar_month_rounded,
+                          color: const Color(0xFF8E24AA),
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const CalendarScreen()),
+                            );
+                            _loadDashboardData();
+                          },
                         ),
-                        const SizedBox(width: 15),
-                        Expanded(
-                          child: _buildActionCard(
-                            title: "Symptômes",
-                            subtitle: _todayEntry != null ? "Saisie enregistrée" : "Noter aujourd'hui",
-                            icon: Icons.add_circle_outline_rounded,
-                            color: const Color(0xFFE91E63),
-                            onTap: () async {
-                              await Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const SymptomsScreen()),
-                              );
-                              _loadDashboardData();
-                            },
-                          ),
+                        _buildActionCard(
+                          title: "Symptômes",
+                          subtitle: _todayEntry != null ? "Saisie enregistrée" : "Noter aujourd'hui",
+                          icon: Icons.add_circle_outline_rounded,
+                          color: const Color(0xFFE91E63),
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const SymptomsScreen()),
+                            );
+                            _loadDashboardData();
+                          },
+                        ),
+                        _buildActionCard(
+                          title: "Analyses",
+                          subtitle: "Tendances du cycle",
+                          icon: Icons.bar_chart_rounded,
+                          color: const Color(0xFFFF9800),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const StatsScreen()),
+                            );
+                          },
+                        ),
+                        _buildActionCard(
+                          title: "Profil",
+                          subtitle: "Vos paramètres",
+                          icon: Icons.person_rounded,
+                          color: const Color(0xFF2196F3),
+                          onTap: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                            );
+                            _loadDashboardData();
+                          },
                         ),
                       ],
                     ),
@@ -160,6 +241,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                     // Next cycle details
                     _buildNextCycleCard(),
+
+                    const SizedBox(height: 20),
+
+                    // Trackers Section (Side by side)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4, bottom: 12, top: 20),
+                      child: Text(
+                        "Ma Santé aujourd'hui",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF4A148C)),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(child: _buildSmallWaterTracker()),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildSmallPillTracker()),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+                    
+                    // Phase Insights (Flo inspired)
+                    _buildPhaseInsights(),
+
+                    const SizedBox(height: 24),
+
+                    // Daily Health Insights
+                    _buildDailyTips(),
                     
                     const SizedBox(height: 30),
                   ],
@@ -170,12 +279,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         currentIndex: 0,
         selectedItemColor: const Color(0xFF8E24AA),
         unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
         onTap: (index) {
           if (index == 1) {
             Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const CalendarScreen()),
+              MaterialPageRoute(builder: (_) => const DiscoverScreen()),
             );
           } else if (index == 2) {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CalendarScreen()),
+            );
+          } else if (index == 3) {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const ProfileScreen()),
             ).then((_) => _loadDashboardData());
@@ -183,8 +297,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Accueil"),
+          BottomNavigationBarItem(icon: Icon(Icons.explore_rounded), label: "Découvrir"),
           BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: "Calendrier"),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profil"),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ChatScreen()),
+          );
+        },
+        backgroundColor: const Color(0xFF4A148C),
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.chat_bubble_outline_rounded),
+        label: const Text("Assistant Santé"),
+      ),
+    );
+  }
+
+  Widget _buildPremiumCTA() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF8E24AA), Color(0xFFE91E63)]),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.pink.withValues(alpha: 0.2), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 24),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Le saviez-vous ?",
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                Text(
+                  "L'exercice léger peut réduire vos douleurs de 30%.",
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DiscoverScreen())),
+            child: const Text("LIRE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
         ],
       ),
     );
@@ -240,10 +402,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       daysText = "Retard de ${daysRemaining.abs()} jours";
     }
 
+    // Probability of pregnancy (Flo inspired)
+    String probText = "Basse";
+    Color probColor = Colors.grey;
+    if (phase.toLowerCase().contains("fertile") || phase.toLowerCase().contains("ovulation")) {
+      probText = "Élevée";
+      probColor = const Color(0xFF2196F3);
+    } else if (currentDay > (avgCycleLength / 2) - 8 && currentDay < (avgCycleLength / 2)) {
+      probText = "Moyenne";
+      probColor = Colors.orange;
+    }
+
     return Center(
       child: Container(
-        width: 250,
-        height: 250,
+        width: 270,
+        height: 270,
         decoration: BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
@@ -261,11 +434,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             // Outer Ring representation
             SizedBox(
-              width: 210,
-              height: 210,
+              width: 230,
+              height: 230,
               child: CircularProgressIndicator(
                 value: percentage,
-                strokeWidth: 12,
+                strokeWidth: 14,
                 backgroundColor: phaseColor.withValues(alpha: 0.1),
                 valueColor: AlwaysStoppedAnimation<Color>(phaseColor),
               ),
@@ -278,11 +451,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   phaseIcon,
                   style: const TextStyle(fontSize: 32),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Text(
                   "JOUR",
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: Colors.grey.shade400,
                     letterSpacing: 2,
@@ -291,21 +464,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Text(
                   "$currentDay",
                   style: TextStyle(
-                    fontSize: 54,
+                    fontSize: 58,
                     fontWeight: FontWeight.w900,
-                    color: Color(0xFF4A148C),
-                    height: 1.1,
+                    color: const Color(0xFF4A148C),
+                    height: 1.0,
                   ),
                 ),
                 Text(
-                  phase,
+                  phase.toUpperCase(),
                   style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
                     color: phaseColor,
+                    letterSpacing: 0.5,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                   decoration: BoxDecoration(
@@ -320,6 +494,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: phaseColor,
                     ),
                   ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Chances de grossesse : ",
+                      style: TextStyle(fontSize: 10, color: Colors.black54),
+                    ),
+                    Text(
+                      probText,
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: probColor),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -366,8 +554,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 16),
             Text(
               title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 16,
+                fontSize: 15,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF4A148C),
               ),
@@ -375,8 +565,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 4),
             Text(
               subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10,
                 color: Colors.grey.shade600,
               ),
             ),
@@ -388,121 +580,124 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildTodaySymptomSummary() {
     if (_todayEntry == null) {
-      return Card(
-        color: const Color(0xFFFFF3F5),
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              const Icon(Icons.favorite_border_rounded, color: Color(0xFFE91E63)),
-              const SizedBox(width: 15),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Suivi quotidien",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF880E4F)),
-                    ),
-                    Text(
-                      "Vous n'avez pas encore noté vos symptômes aujourd'hui.",
-                      style: TextStyle(fontSize: 12, color: Colors.pink.shade900.withValues(alpha: 0.7)),
-                    ),
-                  ],
-                ),
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF3F5),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              child: const Icon(Icons.favorite_rounded, color: Color(0xFFE91E63)),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Comment vous sentez-vous ?",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF880E4F)),
+                  ),
+                  Text(
+                    "Notez vos symptômes pour des prévisions plus précises.",
+                    style: TextStyle(fontSize: 12, color: Colors.pink.shade900.withValues(alpha: 0.7)),
+                  ),
+                ],
               ),
-              TextButton(
-                onPressed: () async {
-                  await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SymptomsScreen()),
-                  );
-                  _loadDashboardData();
-                },
-                child: const Text("Noter"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SymptomsScreen()),
+                );
+                _loadDashboardData();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE91E63),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
               ),
-            ],
-          ),
+              child: const Text("Noter"),
+            ),
+          ],
         ),
       );
     }
 
     final entry = _todayEntry!;
-    List<String> logged = [];
+    List<Map<String, dynamic>> logged = [];
     if (entry['flow_intensity'] != null && entry['flow_intensity'] > 0) {
-      logged.add("Flux: ${_getIntensityText(entry['flow_intensity'])}");
-    }
-    if (entry['pain_intensity'] != null && entry['pain_intensity'] > 0) {
-      logged.add("Douleur: ${_getIntensityText(entry['pain_intensity'])}");
+      logged.add({"label": _getIntensityText(entry['flow_intensity']), "icon": Icons.water_drop, "color": Colors.red});
     }
     if (entry['mood'] != null && entry['mood'].toString().isNotEmpty) {
-      logged.add("Humeur: ${entry['mood']}");
+      logged.add({"label": entry['mood'], "icon": Icons.mood, "color": Colors.orange});
     }
-    if (entry['energy_level'] != null) {
-      logged.add("Énergie: ${entry['energy_level']}/5");
+    if (entry['cervical_mucus'] != null && entry['cervical_mucus'] != "none") {
+      logged.add({"label": "Pertes: ${entry['cervical_mucus']}", "icon": Icons.opacity, "color": Colors.blue});
     }
 
-    return Card(
-      color: Colors.white,
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.favorite_rounded, color: Color(0xFFE91E63), size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      "Symptômes du jour",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF4A148C)),
-                    ),
-                  ],
-                ),
-                TextButton(
-                  onPressed: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SymptomsScreen()),
-                    );
-                    _loadDashboardData();
-                  },
-                  child: const Text("Modifier"),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            logged.isEmpty
-                ? const Text("Rien de particulier noté aujourd'hui.", style: TextStyle(fontSize: 13, color: Colors.black54))
-                : Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: logged.map((tag) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFCE4EC),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        tag,
-                        style: const TextStyle(fontSize: 11, color: Color(0xFFC2185B), fontWeight: FontWeight.w600),
-                      ),
-                    )).toList(),
-                  ),
-            if (entry['notes'] != null && entry['notes'].toString().isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                "Note : \"${entry['notes']}\"",
-                style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.black87),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Résumé du jour",
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF4A148C)),
+              ),
+              GestureDetector(
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SymptomsScreen()),
+                  );
+                  _loadDashboardData();
+                },
+                child: const Text("Modifier", style: TextStyle(color: Color(0xFF8E24AA), fontWeight: FontWeight.bold, fontSize: 13)),
               ),
             ],
-          ],
-        ),
+          ),
+          const SizedBox(height: 16),
+          logged.isEmpty
+              ? const Text("Rien de particulier noté.", style: TextStyle(fontSize: 13, color: Colors.black54))
+              : Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: logged.map((item) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: (item['color'] as Color).withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(item['icon'] as IconData, size: 14, color: item['color'] as Color),
+                        const SizedBox(width: 6),
+                        Text(
+                          item['label'] as String,
+                          style: TextStyle(fontSize: 12, color: item['color'] as Color, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  )).toList(),
+                ),
+        ],
       ),
     );
   }
@@ -520,15 +715,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     final nextPrediction = (_data!['predictions'] as List)[0];
-    final startStr = _formatDateStr(nextPrediction['predicted_start']);
+    final bool isIrregular = _data!['current_cycle']?['is_irregular'] ?? false;
+    
+    String startStr;
+    if (isIrregular && nextPrediction['earliest_predicted_start'] != null) {
+      final s1 = _formatDateStr(nextPrediction['earliest_predicted_start']);
+      final s2 = _formatDateStr(nextPrediction['latest_predicted_start']);
+      startStr = "Entre le $s1 et le $s2";
+    } else {
+      startStr = _formatDateStr(nextPrediction['predicted_start']);
+    }
+
     final fertileStartStr = _formatDateStr(nextPrediction['predicted_fertile_start']);
     final fertileEndStr = _formatDateStr(nextPrediction['predicted_fertile_end']);
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFE8EAF6), Color(0xFFE1BEE7)],
+        gradient: LinearGradient(
+          colors: isIrregular 
+              ? [const Color(0xFFFFF3E0), const Color(0xFFFFE0B2)]
+              : [const Color(0xFFE8EAF6), const Color(0xFFE1BEE7)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -537,13 +744,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Prochaines prévisions",
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1A237E),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Prochaines prévisions",
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1A237E),
+                ),
+              ),
+              if (isIrregular)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(8)),
+                  child: const Text("IRRÉGULIER", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                ),
+            ],
           ),
           const SizedBox(height: 14),
           Row(
@@ -577,7 +795,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "Fenêtre de fertilité estimée",
+                      "Fenêtre de fertilité",
                       style: TextStyle(fontSize: 12, color: Colors.black54),
                     ),
                     Text(
@@ -601,5 +819,238 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (_) {
       return dateStr;
     }
+  }
+
+  Widget _buildSmallWaterTracker() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Icon(Icons.local_drink_rounded, color: Color(0xFF2196F3), size: 20),
+              Text(
+                "$_waterGlasses/8",
+                style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF0D47A1)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text("Eau", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: List.generate(8, (index) {
+              final bool filled = index < _waterGlasses;
+              return GestureDetector(
+                onTap: () {
+                  setState(() => _waterGlasses = index + 1);
+                  _updateQuickStats();
+                },
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: filled ? const Color(0xFF2196F3) : Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFF2196F3).withValues(alpha: 0.3)),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmallPillTracker() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(
+                _pillTaken ? Icons.check_circle : Icons.medication_rounded,
+                color: _pillTaken ? Colors.green : Colors.orange,
+                size: 20,
+              ),
+              Transform.scale(
+                scale: 0.7,
+                child: Switch(
+                  value: _pillTaken,
+                  activeColor: Colors.green,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  onChanged: (val) {
+                    setState(() => _pillTaken = val);
+                    _updateQuickStats();
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text("Pilule", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(
+            _pillTaken ? "Prise" : "À prendre",
+            style: TextStyle(fontSize: 11, color: _pillTaken ? Colors.green.shade700 : Colors.orange.shade900),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhaseInsights() {
+    if (_data == null || _data!['current_cycle'] == null) return const SizedBox.shrink();
+    
+    final phase = _data!['current_cycle']['current_phase'] ?? "Phase folliculaire";
+    String title = "";
+    String content = "";
+    Color color = Colors.purple;
+
+    if (phase.contains("Règles")) {
+      title = "Prenez soin de vous";
+      content = "Votre niveau d'oestrogène est au plus bas. Priorisez le repos et les aliments riches en fer.";
+      color = const Color(0xFFE91E63);
+    } else if (phase.contains("fertile")) {
+      title = "Énergie maximale";
+      content = "C'est le moment où vous vous sentez le plus sociable et dynamique. Profitez-en pour vos projets !";
+      color = const Color(0xFF2196F3);
+    } else if (phase.contains("folliculaire")) {
+      title = "Nouveau départ";
+      content = "Votre corps se prépare. Idéal pour commencer de nouvelles routines sportives.";
+      color = const Color(0xFF9C27B0);
+    } else {
+      title = "Ralentissement";
+      content = "La progestérone augmente. Vous pourriez vous sentir plus introspective ou fatiguée.";
+      color = const Color(0xFFFF9800);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome, color: color, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDailyTips() {
+    final tips = [
+      {
+        "title": "Bien-être",
+        "desc": "La magnésium peut aider à réduire les crampes musculaires.",
+        "icon": Icons.lightbulb_outline,
+        "color": Colors.orange
+      },
+      {
+        "title": "Sommeil",
+        "desc": "Essayez de dormir 8h pour réguler vos hormones.",
+        "icon": Icons.nightlight_round,
+        "color": Colors.indigo
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            "Conseils du jour",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF4A148C)),
+          ),
+        ),
+        SizedBox(
+          height: 130,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: tips.length,
+            itemBuilder: (context, index) {
+              final tip = tips[index];
+              return Container(
+                width: 260,
+                margin: const EdgeInsets.only(right: 15),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: (tip['color'] as Color).withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(tip['icon'] as IconData, color: tip['color'] as Color),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            tip['title'] as String,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            tip['desc'] as String,
+                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
   }
 }

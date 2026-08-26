@@ -22,22 +22,41 @@ class _CalendarScreenState extends State<CalendarScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _selectedDayEntry;
   bool _isLoadingEntry = false;
+  Map<String, dynamic> _allEntries = {};
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
-    _loadPredictions();
+    _loadData();
     _loadSelectedDayEntry();
   }
 
-  Future<void> _loadPredictions() async {
+  Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
     });
-    final data = await _apiService.getPredictions();
+    
+    final results = await Future.wait([
+      _apiService.getPredictions(),
+      _apiService.getDailyEntries(),
+    ]);
+
+    final data = results[0] as Map<String, dynamic>?;
+    final entries = results[1] as List<dynamic>?;
+
+    Map<String, dynamic> entriesMap = {};
+    if (entries != null) {
+      for (var entry in entries) {
+        if (entry['date'] != null) {
+          entriesMap[entry['date']] = entry;
+        }
+      }
+    }
+
     setState(() {
       _predictionData = data;
+      _allEntries = entriesMap;
       _isLoading = false;
     });
   }
@@ -59,6 +78,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   bool _isPeriodDay(DateTime day) {
     if (_predictionData == null) return false;
     
+    final bool isIrregular = _predictionData!['current_cycle']?['is_irregular'] ?? false;
+
     // Check current cycle rules
     if (_predictionData!['current_cycle'] != null) {
       final current = _predictionData!['current_cycle'];
@@ -75,11 +96,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
     // Check predicted rules
     final predictions = _predictionData!['predictions'] as List? ?? [];
     for (var pred in predictions) {
-      final start = DateTime.parse(pred['predicted_start']);
-      final end = DateTime.parse(pred['predicted_end']);
-      if (day.isAfter(start.subtract(const Duration(seconds: 1))) && 
-          day.isBefore(end.add(const Duration(days: 1)))) {
-        return true;
+      DateTime start = DateTime.parse(pred['predicted_start']);
+      DateTime end = DateTime.parse(pred['predicted_end']);
+
+      if (isIrregular && pred['earliest_predicted_start'] != null) {
+        // For irregular cycles, we highlight the range where periods are likely to start
+        final earliest = DateTime.parse(pred['earliest_predicted_start']);
+        final latest = DateTime.parse(pred['latest_predicted_start']);
+        
+        // If the day falls within the uncertainty range OR the estimated period
+        if (day.isAfter(earliest.subtract(const Duration(seconds: 1))) && 
+            day.isBefore(latest.add(Duration(days: (pred['average_period_length'] ?? 5) - 1)))) {
+          return true;
+        }
+      } else {
+        if (day.isAfter(start.subtract(const Duration(seconds: 1))) && 
+            day.isBefore(end.add(const Duration(days: 1)))) {
+          return true;
+        }
       }
     }
     
@@ -153,7 +187,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Nouveau cycle démarré avec succès.")),
       );
-      await _loadPredictions();
+      await _loadData();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Impossible de démarrer le cycle.")),
@@ -274,6 +308,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     Color? cellBg;
     IconData? overlayIcon;
     Color overlayColor = Colors.transparent;
+    
+    final dateKey = DateFormat('yyyy-MM-dd').format(day);
+    final entry = _allEntries[dateKey];
+    final bool hadSex = entry != null && entry['had_sex'] == true;
+    final String sexType = entry?['sex_details'] ?? 'protected';
 
     if (showMarkerBg) {
       if (_isOvulationDay(day)) {
@@ -323,7 +362,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
               top: 2,
               right: 2,
               child: Icon(overlayIcon, size: 10, color: overlayColor),
-            )
+            ),
+          if (hadSex)
+            Positioned(
+              top: 4,
+              left: 4,
+              child: Icon(
+                Icons.favorite_rounded,
+                size: 8,
+                color: sexType == 'unprotected' 
+                    ? const Color(0xFFFF8A80) // Light Red
+                    : Colors.white,            // White
+                shadows: sexType == 'protected' ? [
+                  const Shadow(color: Colors.black26, blurRadius: 2)
+                ] : null,
+              ),
+            ),
         ],
       ),
     );
@@ -332,30 +386,41 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget _buildLegend() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Wrap(
+        spacing: 15,
+        runSpacing: 8,
+        alignment: WrapAlignment.center,
         children: [
           _buildLegendItem("Règles", const Color(0xFFE91E63)),
           _buildLegendItem("Fertile", const Color(0xFF03A9F4)),
           _buildLegendItem("Ovulation", const Color(0xFF2196F3), isStar: true),
+          _buildLegendItem("Rapport", const Color(0xFFFF8A80), isHeart: true),
         ],
       ),
     );
   }
 
-  Widget _buildLegendItem(String label, Color color, {bool isStar = false}) {
+  Widget _buildLegendItem(String label, Color color, {bool isStar = false, bool isHeart = false}) {
+    Widget icon;
+    if (isStar) {
+      icon = Icon(Icons.star_rounded, size: 16, color: color);
+    } else if (isHeart) {
+      icon = Icon(Icons.favorite_rounded, size: 14, color: color);
+    } else {
+      icon = Container(
+        width: 12,
+        height: 12,
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.2), shape: BoxShape.circle),
+        child: Center(
+          child: Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        ),
+      );
+    }
+    
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        isStar
-            ? Icon(Icons.star_rounded, size: 16, color: color)
-            : Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.2), shape: BoxShape.circle),
-                child: Center(
-                  child: Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-                ),
-              ),
+        icon,
         const SizedBox(width: 6),
         Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
       ],
