@@ -55,14 +55,16 @@ class DailyEntry(models.Model):
     physical_symptoms = models.TextField(null=True, blank=True) # Comma separated values
     had_sex = models.BooleanField(default=False)
     sex_details = models.CharField(max_length=50, null=True, blank=True) # protected, unprotected
+    used_contraception = models.BooleanField(default=False)
+    contraception_method = models.CharField(max_length=100, null=True, blank=True) # condom, pill, emergency, etc.
 
     # Lifestyle & Body
     weight = models.FloatField(null=True, blank=True)
     sleep_hours = models.FloatField(null=True, blank=True)
     stress_level = models.IntegerField(null=True, blank=True) # 1-5
     water_intake = models.IntegerField(default=0) # Number of glasses
-    alcohol_consumption = models.BooleanField(default=False)
     pill_taken = models.BooleanField(default=False)
+    alcohol_consumption = models.BooleanField(default=False)
     exercise_intensity = models.CharField(max_length=50, null=True, blank=True) # none, light, moderate, intense
 
     # Skin & Hair

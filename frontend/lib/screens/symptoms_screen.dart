@@ -37,6 +37,8 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
   String _hair = "normal";
   int _waterIntake = 0;
   bool _pillTaken = false;
+  bool _usedContraception = false;
+  String _contraceptionMethod = "condom";
 
   final List<Map<String, dynamic>> _physicalList = [
     {"name": "Crampes", "icon": Icons.bolt, "value": "cramps"},
@@ -99,6 +101,8 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
         _hair = data['hair_condition'] ?? "normal";
         _waterIntake = data['water_intake'] ?? 0;
         _pillTaken = data['pill_taken'] ?? false;
+        _usedContraception = data['used_contraception'] ?? false;
+        _contraceptionMethod = data['contraception_method'] ?? "condom";
         
         if (data['weight'] != null) _weightController.text = data['weight'].toString();
         if (data['sleep_hours'] != null) _sleepController.text = data['sleep_hours'].toString();
@@ -143,6 +147,8 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
       'water_intake': _waterIntake,
       'alcohol_consumption': _alcohol,
       'pill_taken': _pillTaken,
+      'used_contraception': _usedContraception,
+      'contraception_method': _contraceptionMethod,
       'exercise_intensity': _exercise,
       'skin_condition': _skin,
       'hair_condition': _hair,
@@ -194,6 +200,44 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // IMPORTANT: Fertility Signs First (Safety Priority)
+                  _buildSectionCard(
+                    title: "SIGNES DE FERTILITÉ (Priorité Sécurité)",
+                    icon: Icons.security_rounded,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("Pertes vaginales / Mucus :", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _dischargeList.map((d) {
+                            final isSelected = _dischargeType == d['value'];
+                            return ChoiceChip(
+                              label: Text(d['name']!),
+                              selected: isSelected,
+                              selectedColor: const Color(0xFFE1F5FE),
+                              onSelected: (selected) => setState(() => _dischargeType = d['value']!),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text("Température basale (°C) :", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _tempController,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: InputDecoration(
+                            hintText: "Ex: 36.6",
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
                   // Flow Intensity
                   _buildSectionCard(
                     title: "Flux menstruel",
@@ -316,8 +360,8 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
 
                   // Lifestyle / Sex
                   _buildSectionCard(
-                    title: "Activité & Pilule",
-                    icon: Icons.favorite_rounded,
+                    title: "Journal de Protection",
+                    icon: Icons.shield_rounded,
                     child: Column(
                       children: [
                         SwitchListTile(
@@ -330,27 +374,53 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                         ),
                         const Divider(),
                         SwitchListTile(
+                          title: const Text("Autre protection utilisée", style: TextStyle(fontSize: 14)),
+                          subtitle: const Text("Préservatif, diaphragme, etc.", style: TextStyle(fontSize: 11)),
+                          value: _usedContraception,
+                          activeColor: const Color(0xFF4CAF50),
+                          onChanged: (val) => setState(() => _usedContraception = val),
+                          contentPadding: EdgeInsets.zero,
+                          secondary: const Icon(Icons.security_rounded, color: Color(0xFF4CAF50)),
+                        ),
+                        if (_usedContraception)
+                          DropdownButtonFormField<String>(
+                            value: _contraceptionMethod,
+                            decoration: const InputDecoration(labelText: "Méthode"),
+                            items: const [
+                              DropdownMenuItem(value: "condom", child: Text("Préservatif")),
+                              DropdownMenuItem(value: "withdrawal", child: Text("Retrait")),
+                              DropdownMenuItem(value: "emergency", child: Text("Contraception d'urgence")),
+                              DropdownMenuItem(value: "other", child: Text("Autre")),
+                            ],
+                            onChanged: (val) => setState(() => _contraceptionMethod = val!),
+                          ),
+                        const Divider(),
+                        SwitchListTile(
                           title: const Text("Rapport sexuel", style: TextStyle(fontSize: 14)),
                           value: _hadSex,
                           activeColor: const Color(0xFFE91E63),
                           onChanged: (val) => setState(() => _hadSex = val),
                           contentPadding: EdgeInsets.zero,
+                          secondary: const Icon(Icons.favorite_rounded, color: Color(0xFFE91E63)),
                         ),
                         if (_hadSex)
-                          Row(
-                            children: [
-                              ChoiceChip(
-                                label: const Text("Protégé"),
-                                selected: _sexDetails == "protected",
-                                onSelected: (val) => setState(() => _sexDetails = "protected"),
-                              ),
-                              const SizedBox(width: 8),
-                              ChoiceChip(
-                                label: const Text("Non protégé"),
-                                selected: _sexDetails == "unprotected",
-                                onSelected: (val) => setState(() => _sexDetails = "unprotected"),
-                              ),
-                            ],
+                          Padding(
+                            padding: const EdgeInsets.only(left: 48.0),
+                            child: Row(
+                              children: [
+                                ChoiceChip(
+                                  label: const Text("Protégé"),
+                                  selected: _sexDetails == "protected",
+                                  onSelected: (val) => setState(() => _sexDetails = "protected"),
+                                ),
+                                const SizedBox(width: 8),
+                                ChoiceChip(
+                                  label: const Text("Non protégé"),
+                                  selected: _sexDetails == "unprotected",
+                                  onSelected: (val) => setState(() => _sexDetails = "unprotected"),
+                                ),
+                              ],
+                            ),
                           ),
                       ],
                     ),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'irregular_cycle_hub.dart';
+import 'doctor_consultation_screen.dart';
 
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
@@ -12,6 +14,7 @@ class _StatsScreenState extends State<StatsScreen> {
   final ApiService _apiService = ApiService();
   bool _isLoading = true;
   List<dynamic> _cycles = [];
+  List<dynamic> _entries = [];
   Map<String, dynamic>? _analysis;
   Map<String, dynamic>? _currentCycle;
 
@@ -24,9 +27,11 @@ class _StatsScreenState extends State<StatsScreen> {
   Future<void> _loadData() async {
     final cycles = await _apiService.getCycles();
     final predictions = await _apiService.getPredictions();
+    final entries = await _apiService.getDailyEntries();
     
     setState(() {
       _cycles = cycles ?? [];
+      _entries = entries ?? [];
       if (predictions != null) {
         _analysis = predictions['analysis'];
         _currentCycle = predictions['current_cycle'];
@@ -51,6 +56,15 @@ class _StatsScreenState extends State<StatsScreen> {
           style: TextStyle(color: Color(0xFF4A148C), fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.medical_services_rounded, color: Color(0xFF8E24AA)),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DoctorConsultationScreen()),
+              );
+            },
+            tooltip: "Mode Gynécologue",
+          ),
           IconButton(
             icon: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFF8E24AA)),
             onPressed: () {
@@ -94,10 +108,104 @@ class _StatsScreenState extends State<StatsScreen> {
                   ),
                   const SizedBox(height: 12),
                   _buildMoodDistribution(),
+                  const SizedBox(height: 24),
+                  const Text(
+                    "Journal de Protection",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF4A148C)),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildProtectionSummary(),
                   const SizedBox(height: 40),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildProtectionSummary() {
+    int totalSex = _entries.where((e) => e['had_sex'] == true).length;
+    int protectedSex = _entries.where((e) => e['had_sex'] == true && e['sex_details'] == 'protected').length;
+    int pillDays = _entries.where((e) => e['pill_taken'] == true).length;
+
+    double protectionRate = totalSex > 0 ? (protectedSex / totalSex) : 1.0;
+    bool isMaxSecurity = protectionRate == 1.0 && (totalSex > 0 || pillDays > 15);
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 15)],
+      ),
+      child: Column(
+        children: [
+          if (isMaxSecurity)
+            Container(
+              margin: const EdgeInsets.only(bottom: 20),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF43A047), Color(0xFF66BB6A)]),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.verified_user_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    "SÉCURITÉ MAXIMALE",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 12, letterSpacing: 1),
+                  ),
+                ],
+              ),
+            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildSimpleStat("Rapports", "$totalSex"),
+              _buildSimpleStat("Protection", "${(protectionRate * 100).toInt()}%"),
+              _buildSimpleStat("Pilule", "$pillDays j"),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                height: 12,
+                width: double.infinity,
+                child: LinearProgressIndicator(
+                  value: protectionRate,
+                  backgroundColor: Colors.green.shade50,
+                  color: isMaxSecurity ? const Color(0xFF43A047) : Colors.green,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              if (isMaxSecurity)
+                const Positioned(
+                  right: 0,
+                  child: Icon(Icons.stars_rounded, color: Color(0xFFFFD700), size: 24),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isMaxSecurity 
+                ? "Excellent ! Vous suivez rigoureusement vos précautions."
+                : "Continuez ainsi pour une protection optimale.",
+            style: const TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSimpleStat(String label, String value) {
+    return Column(
+      children: [
+        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF4A148C))),
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      ],
     );
   }
 
@@ -149,6 +257,23 @@ class _StatsScreenState extends State<StatsScreen> {
               height: 1.4
             ),
           ),
+          if (isIrregular) ...[
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => IrregularCycleHub(variationDays: variation.toDouble())),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.orange.shade900,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text("Gérer mon cycle irrégulier", style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
         ],
       ),
     );

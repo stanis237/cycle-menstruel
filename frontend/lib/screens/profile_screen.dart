@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import 'login_screen.dart';
+import 'dashboard_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -95,7 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Future.delayed(const Duration(seconds: 1), () {
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          MaterialPageRoute(builder: (_) => DashboardScreen()),
           (route) => false,
         );
       });

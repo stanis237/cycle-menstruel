@@ -73,7 +73,8 @@ class DailyEntrySerializer(serializers.ModelSerializer):
             'id', 'date', 'flow_intensity', 'pain_intensity', 
             'mood', 'energy_level', 'notes', 'temperature', 
             'cervical_mucus', 'lh_test', 'physical_symptoms', 'had_sex',
-            'sex_details', 'weight', 'sleep_hours', 'stress_level',
+            'sex_details', 'used_contraception', 'contraception_method',
+            'weight', 'sleep_hours', 'stress_level',
             'water_intake', 'alcohol_consumption', 'exercise_intensity',
             'skin_condition', 'hair_condition', 'pill_taken'
         ]

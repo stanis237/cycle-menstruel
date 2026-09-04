@@ -10,6 +10,9 @@ import 'discover_screen.dart';
 import 'stats_screen.dart';
 import 'chat_screen.dart';
 import 'premium_screen.dart';
+import 'cycle_syncing_screen.dart';
+import 'irregular_cycle_hub.dart';
+import 'safety_center.dart';
 import '../services/notification_service.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -29,6 +32,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _username = "";
   int _waterGlasses = 0;
   bool _pillTaken = false;
+  bool _blocusMode = false;
+  DateTime _selectedDate = DateTime.now();
 
   @override
   void initState() {
@@ -150,30 +155,91 @@ class _DashboardScreenState extends State<DashboardScreen> {
           : RefreshIndicator(
               onRefresh: _loadDashboardData,
               color: const Color(0xFF8E24AA),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      todayStr,
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                      textAlign: TextAlign.center,
+              child: Stack(
+                children: [
+                  // Subtle Background Logo
+                  Positioned(
+                    right: -50,
+                    top: 100,
+                    child: Opacity(
+                      opacity: 0.03,
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 250,
+                        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                      ),
                     ),
-                    const SizedBox(height: 24),
+                  ),
+                  SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildDateNavigator(),
+                    const SizedBox(height: 20),
+
+                    // Blocus Mode Toggle (Trend)
+                    _buildBlocusToggle(),
+                    const SizedBox(height: 15),
 
                     // Central Status Ring
                     _buildCycleStatusRing(),
+                    
+                    if (_data != null && (_data!['current_cycle']?['is_irregular'] ?? false))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 16.0),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+                          ),
+                          child: const Row(
+                            children: [
+                              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  "Cycle irrégulier : Fiez-vous à vos signes physiques (glaire/température) pour plus de sécurité.",
+                                  style: TextStyle(fontSize: 11, color: Color(0xFFE65100), fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     
                     const SizedBox(height: 20),
                     
                     // Premium Banner
                     _buildPremiumCTA(),
 
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 25),
 
-                    // Bottom Navigation Grid
+                    // Quick Tools Scroller (Compact)
+                    _buildQuickTools(),
+
+                    const SizedBox(height: 20),
+                    
+                    // NEW: Safety Verification & Period Prep
+                    _buildSecurityAndPrepSection(),
+
+                    const SizedBox(height: 20),
+
+                    // Summary
+                    _buildTodaySymptomSummary(),
+                    const SizedBox(height: 24),
+                    
+                    // Actions Grid
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4, bottom: 12),
+                      child: Text(
+                        "Outils & Suivi",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF4A148C)),
+                      ),
+                    ),
                     GridView.count(
                       crossAxisCount: 2,
                       shrinkWrap: true,
@@ -218,6 +284,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           },
                         ),
                         _buildActionCard(
+                          title: "Sécurité",
+                          subtitle: "Guides & Urgence",
+                          icon: Icons.shield_rounded,
+                          color: const Color(0xFFC2185B),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const SafetyCenter()),
+                            );
+                          },
+                        ),
+                        _buildActionCard(
                           title: "Profil",
                           subtitle: "Vos paramètres",
                           icon: Icons.person_rounded,
@@ -232,38 +309,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
-                    // Symptoms Summary or CTA
-                    _buildTodaySymptomSummary(),
+                    // Phase Insights (Flo inspired)
+                    _buildPhaseInsights(),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
                     // Next cycle details
                     _buildNextCycleCard(),
-
-                    const SizedBox(height: 20),
-
-                    // Trackers Section (Side by side)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 4, bottom: 12, top: 20),
-                      child: Text(
-                        "Ma Santé aujourd'hui",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF4A148C)),
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        Expanded(child: _buildSmallWaterTracker()),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildSmallPillTracker()),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-                    
-                    // Phase Insights (Flo inspired)
-                    _buildPhaseInsights(),
 
                     const SizedBox(height: 24),
 
@@ -312,6 +366,146 @@ class _DashboardScreenState extends State<DashboardScreen> {
         foregroundColor: Colors.white,
         icon: const Icon(Icons.chat_bubble_outline_rounded),
         label: const Text("Assistant Santé"),
+      ),
+    );
+  }
+
+  Widget _buildDateNavigator() {
+    final dateDisplay = DateFormat('EEEE dd MMMM', 'fr_FR').format(_selectedDate);
+    final isToday = DateFormat('yyyy-MM-dd').format(_selectedDate) == 
+                    DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.chevron_left, color: Color(0xFF8E24AA)),
+          onPressed: () {
+            setState(() {
+              _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+            });
+          },
+        ),
+        Column(
+          children: [
+            Text(
+              isToday ? "AUJOURD'HUI" : "DATE",
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Color(0xFF8E24AA), letterSpacing: 1),
+            ),
+            Text(
+              dateDisplay,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+          ],
+        ),
+        IconButton(
+          icon: const Icon(Icons.chevron_right, color: Color(0xFF8E24AA)),
+          onPressed: () {
+            setState(() {
+              _selectedDate = _selectedDate.add(const Duration(days: 1));
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBlocusToggle() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: _blocusMode ? const Color(0xFF1A237E) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _blocusMode ? Colors.transparent : Colors.grey.shade300),
+        boxShadow: _blocusMode ? [BoxShadow(color: Colors.blue.withValues(alpha: 0.3), blurRadius: 8)] : null,
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.menu_book_rounded, color: _blocusMode ? Colors.white : Colors.blueGrey),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Mode Blocus & Stress",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold, 
+                    fontSize: 13, 
+                    color: _blocusMode ? Colors.white : Colors.black87
+                  ),
+                ),
+                Text(
+                  "Ajuste les prédictions et conseils",
+                  style: TextStyle(
+                    fontSize: 11, 
+                    color: _blocusMode ? Colors.white70 : Colors.grey
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: _blocusMode,
+            activeColor: Colors.amber,
+            onChanged: (val) {
+              setState(() {
+                _blocusMode = val;
+              });
+              if (val) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Mode Blocus activé : Vos conseils sont personnalisés.")),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickTools() {
+    return SizedBox(
+      height: 120,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _buildToolCard("Hydratation", "${_waterGlasses}/8", Icons.local_drink, Colors.blue, _buildSmallWaterTracker()),
+          const SizedBox(width: 15),
+          _buildToolCard("Pilule", _pillTaken ? "Prise" : "20:00", Icons.medication, Colors.orange, _buildSmallPillTracker()),
+          const SizedBox(width: 15),
+          _buildToolCard("Exercice", "À faire", Icons.fitness_center, Colors.green, const Text("Yoga léger", style: TextStyle(fontSize: 10))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolCard(String title, String value, IconData icon, Color color, Widget content) {
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icon, color: color, size: 16),
+              Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const Spacer(),
+          // Note: We'll use the existing small trackers but wrapped
+          SizedBox(height: 40, child: content),
+        ],
       ),
     );
   }
@@ -386,6 +580,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final phaseColor = _getPhaseColor(phase);
     final phaseIcon = _getPhaseIcon(phase);
 
+    // Blocus logic
+    String blocusNotice = "";
+    if (_blocusMode) {
+      blocusNotice = "Attention : Le stress peut retarder votre cycle.";
+    }
+
     // Calculate percentage representation
     double percentage = currentDay / avgCycleLength;
     if (percentage > 1.0) percentage = 1.0;
@@ -404,13 +604,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     // Probability of pregnancy (Flo inspired)
     String probText = "Basse";
-    Color probColor = Colors.grey;
+    Color probColor = Colors.green;
+    String riskTitle = "ZONE SÛRE";
+    
     if (phase.toLowerCase().contains("fertile") || phase.toLowerCase().contains("ovulation")) {
       probText = "Élevée";
-      probColor = const Color(0xFF2196F3);
+      probColor = Colors.red;
+      riskTitle = "RISQUE ÉLEVÉ";
     } else if (currentDay > (avgCycleLength / 2) - 8 && currentDay < (avgCycleLength / 2)) {
       probText = "Moyenne";
       probColor = Colors.orange;
+      riskTitle = "VIGILANCE";
     }
 
     return Center(
@@ -422,7 +626,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: phaseColor.withValues(alpha: 0.15),
+              color: probColor.withValues(alpha: 0.15),
               blurRadius: 30,
               spreadRadius: 5,
               offset: const Offset(0, 10),
@@ -439,14 +643,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: CircularProgressIndicator(
                 value: percentage,
                 strokeWidth: 14,
-                backgroundColor: phaseColor.withValues(alpha: 0.1),
-                valueColor: AlwaysStoppedAnimation<Color>(phaseColor),
+                backgroundColor: probColor.withValues(alpha: 0.1),
+                valueColor: AlwaysStoppedAnimation<Color>(probColor),
               ),
             ),
             // Central Content
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  decoration: BoxDecoration(color: probColor, borderRadius: BorderRadius.circular(8)),
+                  child: Text(
+                    riskTitle,
+                    style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Text(
                   phaseIcon,
                   style: const TextStyle(fontSize: 32),
@@ -509,6 +722,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ],
                 ),
+                if (_blocusMode) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    blocusNotice,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 9, color: Colors.redAccent, fontWeight: FontWeight.bold),
+                  ),
+                ]
               ],
             ),
           ],
@@ -756,10 +977,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               if (isIrregular)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(8)),
-                  child: const Text("IRRÉGULIER", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                GestureDetector(
+                  onTap: () {
+                    final variation = _data!['analysis']?['variation_days'] ?? 0.0;
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => IrregularCycleHub(variationDays: variation.toDouble())),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: Colors.orange, borderRadius: BorderRadius.circular(8)),
+                    child: const Text("IRRÉGULIER >", style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                  ),
                 ),
             ],
           ),
@@ -923,8 +1152,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Color color = Colors.purple;
 
     if (phase.contains("Règles")) {
-      title = "Prenez soin de vous";
-      content = "Votre niveau d'oestrogène est au plus bas. Priorisez le repos et les aliments riches en fer.";
+      title = _blocusMode ? "Blocus & Règles" : "Prenez soin de vous";
+      content = _blocusMode 
+        ? "Mix difficile ! Buvez des tisanes au gingembre et faites des micro-pauses de 5 min toutes les heures."
+        : "Votre niveau d'oestrogène est au plus bas. Priorisez le repos et les aliments riches en fer.";
       color = const Color(0xFFE91E63);
     } else if (phase.contains("fertile")) {
       title = "Énergie maximale";
@@ -940,32 +1171,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
       color = const Color(0xFFFF9800);
     }
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: color.withValues(alpha: 0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.auto_awesome, color: color, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            content,
-            style: const TextStyle(fontSize: 14, color: Colors.black87, height: 1.4),
-          ),
-        ],
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => CycleSyncingScreen(phase: phase)),
+        );
+      },
+      borderRadius: BorderRadius.circular(24),
+      child: Ink(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: color.withValues(alpha: 0.1), width: 1.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+                  child: Icon(Icons.auto_awesome_rounded, color: color, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17, color: color, letterSpacing: 0.5),
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios_rounded, size: 14, color: color.withValues(alpha: 0.5)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              content,
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade800, height: 1.5, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  "Voir conseils sport & nutrition",
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color.withValues(alpha: 0.7)),
+                ),
+              ],
+            )
+          ],
+        ),
       ),
     );
   }
@@ -1051,6 +1306,93 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSecurityAndPrepSection() {
+    final bool isNearPeriod = (_data != null && _data!['current_cycle'] != null) && 
+        (_data!['current_cycle']['average_cycle_length'] - _data!['current_cycle']['current_day'] <= 3);
+
+    return Column(
+      children: [
+        // Card 1: Safety Verification
+        _buildActionBanner(
+          title: "Vérifier ma sécurité",
+          subtitle: "Rapport sans risque ou protection ?",
+          icon: Icons.verified_user_rounded,
+          color: const Color(0xFF1B5E20),
+          onTap: () {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SafetyCenter()));
+          },
+        ),
+        
+        if (isNearPeriod) ...[
+          const SizedBox(height: 16),
+          // Card 2: Period Prep Kit (Visible only when period is near)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3F5),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.pink.shade100),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.shopping_bag_rounded, color: Color(0xFFE91E63), size: 24),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Kit Préparation Règles 🩸", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF880E4F))),
+                      Text("Anticipez vos douleurs habituelles.", style: TextStyle(fontSize: 12, color: Colors.black54)),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Conseil : Prévoyez magnésium et bouillotte dès demain.")),
+                    );
+                  },
+                  child: const Text("VOIR", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildActionBanner({required String title, required String subtitle, required IconData icon, required Color color, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(24),
+      child: Ink(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: color)),
+                  Text(subtitle, style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.7))),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: color),
+          ],
+        ),
+      ),
     );
   }
 }

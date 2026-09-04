@@ -106,8 +106,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   // Logo/Icon area
                   Container(
-                    width: 90,
-                    height: 90,
+                    width: 100,
+                    height: 100,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
@@ -119,10 +119,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.spa_rounded,
-                      size: 50,
-                      color: Color(0xFFE91E63), // Pink
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(
+                            Icons.spa_rounded,
+                            size: 50,
+                            color: Color(0xFFE91E63),
+                          );
+                        },
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
