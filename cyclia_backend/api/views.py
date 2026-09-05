@@ -262,3 +262,19 @@ class PredictionsView(views.APIView):
                 "variation_days": round(std_dev, 1)
             }
         })
+
+class LeaderboardView(views.APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        # In a real app, this would query the DB for top security scores
+        # Here we return simulated anonymous data for the "Social Proof" effect
+        data = [
+            {"username": "Louve_Sereine", "score": 100, "badges": 12, "is_me": False},
+            {"username": "Etoile_Protegee", "score": 98, "badges": 10, "is_me": False},
+            {"username": "Rose_Vigilante", "score": 95, "badges": 9, "is_me": False},
+            {"username": request.user.username, "score": 85, "badges": 5, "is_me": True},
+            {"username": "Iris_Libre", "score": 82, "badges": 4, "is_me": False},
+            {"username": "Nymphe_Bio", "score": 78, "badges": 3, "is_me": False},
+        ]
+        return Response(data)

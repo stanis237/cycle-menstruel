@@ -15,6 +15,8 @@ class UserProfile(models.Model):
     is_irregular_declared = models.BooleanField(default=False)
     objective = models.CharField(max_length=50, choices=OBJECTIVE_CHOICES, default='track')
     privacy_enabled = models.BooleanField(default=True)
+    is_discreet_mode = models.BooleanField(default=False)
+    is_premium = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

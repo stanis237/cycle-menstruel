@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .views import RegisterView, ProfileView, CycleViewSet, DailyEntryViewSet, PredictionsView
+from .views import RegisterView, ProfileView, CycleViewSet, DailyEntryViewSet, PredictionsView, LeaderboardView
 
 router = DefaultRouter()
 router.register(r'cycles', CycleViewSet, basename='cycle')
@@ -18,7 +18,10 @@ urlpatterns = [
     
     # Predictions endpoint
     path('predictions/', PredictionsView.as_view(), name='predictions'),
-    
+
+    # Leaderboard endpoint
+    path('leaderboard/', LeaderboardView.as_view(), name='leaderboard'),
+
     # ViewSets (Cycles, DailyEntries)
     path('', include(router.urls)),
 ]

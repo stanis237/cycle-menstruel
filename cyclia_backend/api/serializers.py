@@ -5,7 +5,7 @@ from .models import UserProfile, Cycle, DailyEntry
 class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ['birth_date', 'average_cycle_length', 'average_period_length', 'is_irregular_declared', 'objective', 'privacy_enabled']
+        fields = ['birth_date', 'average_cycle_length', 'average_period_length', 'is_irregular_declared', 'objective', 'privacy_enabled', 'is_discreet_mode', 'is_premium']
 
 
 class UserSerializer(serializers.ModelSerializer):
