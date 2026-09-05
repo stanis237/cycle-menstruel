@@ -1,0 +1,28 @@
+name: Flutter iOS Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+        cache: true
+
+    - name: Install dependencies
+      working-directory: cyclia
+      run: flutter pub get
+
+    - name: Build iOS (No signing)
+      working-directory: cyclia
+      run: flutter build ios --release --no-codesign

@@ -1,0 +1,58 @@
+name: Flutter Android Build
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+        cache: true # Active le cache automatique pour Flutter
+
+    - name: Install dependencies
+      working-directory: cyclia
+      run: flutter pub get
+
+    - name: Run Analyze
+      working-directory: cyclia
+      run: flutter analyze
+
+    - name: Run Tests
+      working-directory: cyclia
+      run: flutter test
+
+    - name: Build APK
+      working-directory: cyclia
+      run: flutter build apk --release
+
+    - name: Build AppBundle (AAB)
+      working-directory: cyclia
+      run: flutter build appbundle --release
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-apk
+        path: cyclia/build/app/outputs/flutter-apk/app-release.apk
+
+    - name: Upload AAB
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-aab
+        path: cyclia/build/app/outputs/bundle/release/app-release.aab
