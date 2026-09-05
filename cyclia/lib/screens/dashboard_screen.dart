@@ -9,7 +9,6 @@ import 'profile_screen.dart';
 import 'discover_screen.dart';
 import 'stats_screen.dart';
 import 'chat_screen.dart';
-import 'premium_screen.dart';
 import 'cycle_syncing_screen.dart';
 import 'irregular_cycle_hub.dart';
 import 'safety_center.dart';
@@ -210,9 +209,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0, selectedItemColor: const Color(0xFF8E24AA), unselectedItemColor: Colors.grey, type: BottomNavigationBarType.fixed,
         onTap: (index) {
-          if (index == 1) Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DiscoverScreen()));
-          else if (index == 2) Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen()));
-          else if (index == 3) Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())).then((_) => _loadDashboardData());
+          if (index == 1) {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DiscoverScreen()));
+          } else if (index == 2) {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CalendarScreen()));
+          } else if (index == 3) {
+            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())).then((_) => _loadDashboardData());
+          }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Accueil"),
@@ -259,13 +262,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return AnimatedContainer(duration: const Duration(milliseconds: 300), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: _blocusMode ? const Color(0xFF1A237E) : Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _blocusMode ? Colors.transparent : Colors.grey.shade300), boxShadow: _blocusMode ? [BoxShadow(color: Colors.blue.withValues(alpha: 0.3), blurRadius: 8)] : null), child: Row(children: [
       Icon(Icons.menu_book_rounded, color: _blocusMode ? Colors.white : Colors.blueGrey), const SizedBox(width: 12),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text("Mode Blocus & Stress", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _blocusMode ? Colors.white : Colors.black87)), Text("Ajuste les prédictions et conseils", style: TextStyle(fontSize: 11, color: _blocusMode ? Colors.white70 : Colors.grey))])),
-      Switch(value: _blocusMode, activeColor: Colors.amber, onChanged: (val) { setState(() => _blocusMode = val); if (val) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mode Blocus activé."))); }),
+      Switch(value: _blocusMode, activeThumbColor: Colors.amber, onChanged: (val) { setState(() => _blocusMode = val); if (val) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mode Blocus activé."))); }),
     ]));
   }
 
   Widget _buildQuickTools() {
     return SizedBox(height: 120, child: ListView(scrollDirection: Axis.horizontal, children: [
-      _buildToolCard("Hydratation", "${_waterGlasses}/8", Icons.local_drink, Colors.blue, _buildSmallWaterTracker()), const SizedBox(width: 15),
+      _buildToolCard("Hydratation", "$_waterGlasses/8", Icons.local_drink, Colors.blue, _buildSmallWaterTracker()), const SizedBox(width: 15),
       _buildToolCard("Pilule", _pillTaken ? "Prise" : "20:00", Icons.medication, Colors.orange, _buildSmallPillTracker()), const SizedBox(width: 15),
       _buildToolCard("Exercice", "À faire", Icons.fitness_center, Colors.green, const Text("Yoga léger", style: TextStyle(fontSize: 10))),
     ]));
@@ -337,7 +340,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSmallPillTracker() {
-    return Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFFFFF8E1), borderRadius: BorderRadius.circular(24)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Icon(_pillTaken ? Icons.check_circle : Icons.medication_rounded, color: _pillTaken ? Colors.green : Colors.orange, size: 20), Transform.scale(scale: 0.7, child: Switch(value: _pillTaken, activeColor: Colors.green, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap, onChanged: (val) { setState(() => _pillTaken = val); _updateQuickStats(); }))]), const SizedBox(height: 4), const Text("Pilule", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), Row(children: [Text(_pillTaken ? "Prise" : "À prendre", style: TextStyle(fontSize: 10, color: _pillTaken ? Colors.green.shade700 : Colors.orange.shade900)), if (_pillStreak > 1) ...[const SizedBox(width: 4), Text("• 🔥 $_pillStreak", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange))]])]));
+    return Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: const Color(0xFFFFF8E1), borderRadius: BorderRadius.circular(24)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Icon(_pillTaken ? Icons.check_circle : Icons.medication_rounded, color: _pillTaken ? Colors.green : Colors.orange, size: 20), Transform.scale(scale: 0.7, child: Switch(value: _pillTaken, activeThumbColor: Colors.green, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap, onChanged: (val) { setState(() => _pillTaken = val); _updateQuickStats(); }))]), const SizedBox(height: 4), const Text("Pilule", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)), Row(children: [Text(_pillTaken ? "Prise" : "À prendre", style: TextStyle(fontSize: 10, color: _pillTaken ? Colors.green.shade700 : Colors.orange.shade900)), if (_pillStreak > 1) ...[const SizedBox(width: 4), Text("• 🔥 $_pillStreak", style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange))]])]));
   }
 
   Widget _buildPhaseInsights() {

@@ -11,7 +11,6 @@ class FertilityAnalysisScreen extends StatefulWidget {
 class _FertilityAnalysisScreenState extends State<FertilityAnalysisScreen> {
   final ApiService _apiService = ApiService();
   bool _isLoading = true;
-  List<dynamic> _entries = [];
   double _confidenceScore = 0.0;
 
   @override
@@ -29,7 +28,6 @@ class _FertilityAnalysisScreenState extends State<FertilityAnalysisScreen> {
       int mucusLogged = entries.where((e) => e['cervical_mucus'] != null && e['cervical_mucus'] != 'none').length;
       
       setState(() {
-        _entries = entries;
         _confidenceScore = (tempLogged + mucusLogged) / (loggedDays * 2).clamp(1, 100);
         if (_confidenceScore > 1.0) _confidenceScore = 1.0;
         _isLoading = false;

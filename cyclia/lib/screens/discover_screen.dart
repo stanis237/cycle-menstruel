@@ -132,13 +132,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           ),
         ),
         padding: const EdgeInsets.all(24),
-        child: const Column(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.end,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: Color(0xFF8E24AA), borderRadius: BorderRadius.circular(8)),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: const Color(0xFF8E24AA), borderRadius: BorderRadius.circular(8)),
               child: Text(
                 "SANTÉ MENTALE",
                 style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.2),

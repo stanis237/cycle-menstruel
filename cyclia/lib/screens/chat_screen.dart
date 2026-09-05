@@ -103,6 +103,10 @@ class _ChatScreenState extends State<ChatScreen> {
       return "Je comprends, c'est une période parfois difficile. $advice Vous pouvez trouver des compléments adaptés dans notre BOUTIQUE.";
     }
 
+    if (query.contains("phase") || query.contains("cycle")) {
+      return "Vous êtes au jour $day de votre cycle, en $phase. C'est un moment idéal pour ${_getPhaseTip(phase)}.";
+    }
+
     // Default
     return "Je suis là pour vous aider à comprendre votre cycle. Vous pouvez me poser des questions sur votre fertilité, vos douleurs ou comment gérer votre Mode Blocus !";
   }

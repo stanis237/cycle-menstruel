@@ -258,7 +258,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           title: const Text("Mes cycles sont irréguliers"),
                           subtitle: const Text("Cochez si la durée de vos cycles varie souvent de plus de 7 jours."),
                           value: _isIrregular,
-                          activeColor: const Color(0xFF8E24AA),
+                          activeThumbColor: const Color(0xFF8E24AA),
                           contentPadding: EdgeInsets.zero,
                           onChanged: (val) {
                             setState(() {

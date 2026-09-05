@@ -15,7 +15,6 @@ class StatsScreen extends StatefulWidget {
 class _StatsScreenState extends State<StatsScreen> {
   final ApiService _apiService = ApiService();
   bool _isLoading = true;
-  List<dynamic> _cycles = [];
   List<dynamic> _entries = [];
   Map<String, dynamic>? _analysis;
   Map<String, dynamic>? _currentCycle;
@@ -27,13 +26,11 @@ class _StatsScreenState extends State<StatsScreen> {
   }
 
   Future<void> _loadData() async {
-    final cycles = await _apiService.getCycles();
     final predictions = await _apiService.getPredictions();
     final entries = await _apiService.getDailyEntries();
     
     if (mounted) {
       setState(() {
-        _cycles = cycles ?? [];
         _entries = entries ?? [];
         if (predictions != null) {
           _analysis = predictions['analysis'];

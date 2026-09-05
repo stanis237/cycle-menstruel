@@ -367,7 +367,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                         SwitchListTile(
                           title: const Text("Pilule prise aujourd'hui", style: TextStyle(fontSize: 14)),
                           value: _pillTaken,
-                          activeColor: const Color(0xFFFF9800),
+                          activeThumbColor: const Color(0xFFFF9800),
                           onChanged: (val) => setState(() => _pillTaken = val),
                           contentPadding: EdgeInsets.zero,
                           secondary: const Icon(Icons.medication_rounded, color: Color(0xFFFF9800)),
@@ -377,14 +377,14 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                           title: const Text("Autre protection utilisée", style: TextStyle(fontSize: 14)),
                           subtitle: const Text("Préservatif, diaphragme, etc.", style: TextStyle(fontSize: 11)),
                           value: _usedContraception,
-                          activeColor: const Color(0xFF4CAF50),
+                          activeThumbColor: const Color(0xFF4CAF50),
                           onChanged: (val) => setState(() => _usedContraception = val),
                           contentPadding: EdgeInsets.zero,
                           secondary: const Icon(Icons.security_rounded, color: Color(0xFF4CAF50)),
                         ),
                         if (_usedContraception)
                           DropdownButtonFormField<String>(
-                            value: _contraceptionMethod,
+                            initialValue: _contraceptionMethod,
                             decoration: const InputDecoration(labelText: "Méthode"),
                             items: const [
                               DropdownMenuItem(value: "condom", child: Text("Préservatif")),
@@ -398,7 +398,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                         SwitchListTile(
                           title: const Text("Rapport sexuel", style: TextStyle(fontSize: 14)),
                           value: _hadSex,
-                          activeColor: const Color(0xFFE91E63),
+                          activeThumbColor: const Color(0xFFE91E63),
                           onChanged: (val) => setState(() => _hadSex = val),
                           contentPadding: EdgeInsets.zero,
                           secondary: const Icon(Icons.favorite_rounded, color: Color(0xFFE91E63)),
@@ -460,7 +460,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                     child: Column(
                       children: [
                         DropdownButtonFormField<String>(
-                          value: _skin,
+                          initialValue: _skin,
                           decoration: const InputDecoration(labelText: "État de la peau"),
                           items: const [
                             DropdownMenuItem(value: "clear", child: Text("Saine")),
@@ -471,7 +471,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                           onChanged: (val) => setState(() => _skin = val!),
                         ),
                         DropdownButtonFormField<String>(
-                          value: _hair,
+                          initialValue: _hair,
                           decoration: const InputDecoration(labelText: "État des cheveux"),
                           items: const [
                             DropdownMenuItem(value: "normal", child: Text("Normaux")),
@@ -505,7 +505,7 @@ class _SymptomsScreenState extends State<SymptomsScreen> {
                           onChanged: (val) => setState(() => _stressLevel = val.toInt()),
                         ),
                         DropdownButtonFormField<String>(
-                          value: _exercise,
+                          initialValue: _exercise,
                           decoration: const InputDecoration(labelText: "Activité physique"),
                           items: const [
                             DropdownMenuItem(value: "none", child: Text("Aucune")),

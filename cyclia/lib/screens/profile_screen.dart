@@ -250,7 +250,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           title: const Text("Cycles irréguliers"),
                           subtitle: const Text("Applique une marge d'incertitude aux prédictions"),
                           value: _isIrregular,
-                          activeColor: const Color(0xFF8E24AA),
+                          activeThumbColor: const Color(0xFF8E24AA),
                           onChanged: (val) {
                             setState(() {
                               _isIrregular = val;
@@ -267,7 +267,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: "Objectif de l'application",
                     icon: Icons.track_changes_rounded,
                     child: DropdownButtonFormField<String>(
-                      value: _objective,
+                      initialValue: _objective,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -325,7 +325,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           title: const Text("Rappel de pilule"),
                           subtitle: const Text("Recevoir une notification quotidienne"),
                           value: _pillReminderEnabled,
-                          activeColor: const Color(0xFF8E24AA),
+                          activeThumbColor: const Color(0xFF8E24AA),
                           onChanged: (val) {
                             setState(() {
                               _pillReminderEnabled = val;
@@ -353,7 +353,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           title: const Text("Rappels de cycle"),
                           subtitle: const Text("Prévisions de règles et d'ovulation"),
                           value: _cycleRemindersEnabled,
-                          activeColor: const Color(0xFF8E24AA),
+                          activeThumbColor: const Color(0xFF8E24AA),
                           onChanged: (val) {
                             setState(() {
                               _cycleRemindersEnabled = val;
@@ -386,6 +386,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   await SyncService().updateLastSync();
                                   await _loadProfileData();
                                   if (mounted) {
+                                    if (!context.mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(content: Text("Synchronisation réussie.")),
                                     );
@@ -403,6 +404,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     await ExportService().exportDataToCsv();
                                   } catch (e) {
                                     if (mounted) {
+                                      if (!context.mounted) return;
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(content: Text("Erreur: ${e.toString()}")),
                                       );
